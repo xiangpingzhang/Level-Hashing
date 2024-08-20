@@ -9,7 +9,7 @@
 
 #define ASSOC_NUM 4                       // The number of slots in a bucket
 #define KEY_LEN 16                        // The maximum length of a key
-#define VALUE_LEN 15                      // The maximum length of a value
+#define VALUE_LEN 16                      // The maximum length of a value
 
 typedef struct entry{                     // A slot storing a key-value item 
     uint8_t key[KEY_LEN];
