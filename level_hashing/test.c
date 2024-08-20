@@ -12,19 +12,20 @@ int main(int argc, char* argv[])
     double time_taken;
     double ops;   
 
-    level_hash *level = level_init(level_size);
-    uint64_t inserted = 0, i = 0;
-
+    printf("Pre alloc memory:\n");
     //pre-allocate and format key and value arrays
     uint8_t **keysOrValues = (uint8_t**)malloc((insert_num + 1 )* sizeof(uint8_t *));
     for (int i = 0; i < insert_num + 1; i++) {
-        keysOrValues[i] = (uint8_t *)malloc(KEY_LEN * sizeof(uint8_t *));
+        keysOrValues[i] = (uint8_t *)malloc(KEY_LEN * sizeof(uint8_t));
     }
-
+    printf("Alloc memory done\n");
     //format keys and values
     for (int i = 1; i < insert_num + 1; i++) {
         snprintf(keysOrValues[i], KEY_LEN, "%d", i + 1);
     }
+
+    level_hash *level = level_init(level_size);
+    uint64_t inserted = 0, i = 0;
 
     start_time = clock();
     for (i = 1; i < insert_num + 1; i ++)

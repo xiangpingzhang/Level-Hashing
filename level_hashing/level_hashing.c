@@ -1,5 +1,5 @@
 #include "level_hashing.h"
-
+#include "numa.h"
 /*
 Function: F_HASH()
         Compute the first hash value of a key-value item
@@ -72,8 +72,8 @@ level_hash *level_init(uint64_t level_size)
     level->addr_capacity = pow(2, level_size);
     level->total_capacity = pow(2, level_size) + pow(2, level_size - 1);
     generate_seeds(level);
-    level->buckets[0] = alignedmalloc(pow(2, level_size)*sizeof(level_bucket));
-    level->buckets[1] = alignedmalloc(pow(2, level_size - 1)*sizeof(level_bucket));
+    level->buckets[0] = (level_bucket*)numa_alloc_onnode(pow(2, level_size) * sizeof(level_bucket), 2);
+    level->buckets[1] = (level_bucket*)numa_alloc_onnode(pow(2, level_size - 1) * sizeof(level_bucket), 2);
     level->level_item_num[0] = 0;
     level->level_item_num[1] = 0;
     level->level_expand_time = 0;
@@ -108,7 +108,7 @@ void level_expand(level_hash *level)
     }
     level->resize_state = 1;
     level->addr_capacity = pow(2, level->level_size + 1);
-    level_bucket *newBuckets = alignedmalloc(level->addr_capacity*sizeof(level_bucket));
+    level_bucket *newBuckets = (level_bucket*)numa_alloc_onnode(level->addr_capacity*sizeof(level_bucket),2);
     if (!newBuckets) {
         printf("The expanding fails: 2\n");
         exit(1);
@@ -164,7 +164,8 @@ void level_expand(level_hash *level)
     level->level_size ++;
     level->total_capacity = pow(2, level->level_size) + pow(2, level->level_size - 1);
 
-    free(level->buckets[1]);
+    //free(level->buckets[1]);
+    numa_free(level->buckets[1],pow(2,(level->level_size-2))*sizeof(level_bucket));
     level->buckets[1] = level->buckets[0];
     level->buckets[0] = newBuckets;
     newBuckets = NULL;
@@ -197,7 +198,7 @@ void level_shrink(level_hash *level)
 
     level->resize_state = 2;
     level->level_size --;
-    level_bucket *newBuckets = alignedmalloc(pow(2, level->level_size - 1)*sizeof(level_bucket));
+    level_bucket *newBuckets = (level_bucket*)numa_alloc_onnode(pow(2, level->level_size - 1)*sizeof(level_bucket),2);
     level_bucket *interimBuckets = level->buckets[0];
     level->buckets[0] = level->buckets[1];
     level->buckets[1] = newBuckets;
@@ -224,7 +225,8 @@ void level_shrink(level_hash *level)
         }
     } 
 
-    free(interimBuckets);
+    //free(interimBuckets);
+    numa_free(interimBuckets,pow(2,level->level_size+1)*sizeof(level_bucket));
     level->level_expand_time = 0;
     level->resize_state = 0;
 }
@@ -566,7 +568,7 @@ Function: level_destroy()
 */
 void level_destroy(level_hash *level)
 {
-    free(level->buckets[0]);
-    free(level->buckets[1]);
+    numa_free(level->buckets[0],pow(2,level->level_size)*sizeof(level_bucket));
+    numa_free(level->buckets[1],pow(2,level->level_size-1)*sizeof(level_bucket));
     level = NULL;
 }
