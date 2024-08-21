@@ -7,17 +7,25 @@
 #include <math.h>
 #include <pthread.h>
 #include "hash.h"
+#include <stdbool.h>
 #include "spinlock.h"
 
 #define ASSOC_NUM 4                       // The number of slots in a bucket
 #define KEY_LEN 16                        // The maximum length of a key
-#define VALUE_LEN 15                      // The maximum length of a value
-#define READ_WRITE_NUM 350000             // The total number of read and write operations in the workload
+#define VALUE_LEN 16                      // The maximum length of a value
+#define READ_WRITE_NUM 200000000            // The total number of read and write operations in the workload
 
 typedef struct entry{                     // A slot storing a key-value item 
     uint8_t key[KEY_LEN];
     uint8_t value[VALUE_LEN];
 } entry;
+
+typedef struct barrier {
+    pthread_cond_t complete;
+    pthread_mutex_t mutex;
+    int count;
+    int crossing;
+} barrier;
 
 typedef struct level_bucket               // A bucket
 {
@@ -38,6 +46,8 @@ typedef struct level_hash {               // A Level hash table
     uint64_t total_capacity;              // The number of all buckets in the Level hash table    
     uint64_t level_size;                  // level_size = log2(addr_capacity)
     uint8_t level_resize;                 // Indicate whether the Level hash table was resized, "1": Yes, "0": No;
+    barrier resize_barrier;
+    bool need_resizing;
     uint64_t f_seed;
     uint64_t s_seed;                      // Two randomized seeds for hash functions
 } level_hash;
@@ -56,17 +66,17 @@ typedef struct sub_thread{
 } sub_thread;
 
 
-level_hash *level_init(uint64_t level_size);     
+level_hash *level_init(uint64_t level_size,size_t num_threads);     
 
-uint8_t level_insert(level_hash *level, uint8_t *key, uint8_t *value);          
+uint8_t level_insert(level_hash *level, uint8_t *key, uint8_t *value,uint32_t thread_id);          
 
-uint8_t level_query(level_hash *level, uint8_t *key, uint8_t *value);
+uint8_t level_query(level_hash *level, uint8_t *key, uint8_t *value,uint32_t thread_id);
 
-uint8_t level_delete(level_hash *level, uint8_t*key);
+uint8_t level_delete(level_hash *level, uint8_t*key,uint32_t thread_id);
 
-uint8_t level_update(level_hash *level, uint8_t *key, uint8_t *new_value);
+uint8_t level_update(level_hash *level, uint8_t *key, uint8_t *new_value,uint32_t thread_id);
 
-void level_resize(level_hash *level);
+void level_resize(level_hash *level,uint32_t thread_id);
 
 uint8_t try_movement(level_hash *level, uint64_t idx, uint64_t level_num, uint8_t *key, uint8_t *value);
 
@@ -74,4 +84,14 @@ int b2t_movement(level_hash *level, uint64_t idx);
 
 void level_destroy(level_hash *level);
 
+void level_statistic(level_hash *level);
+
 void ycsb_thread_run(void* arg);
+
+void thread_insert(void* arg);
+
+void thread_search(void* arg);
+
+void thread_update(void *arg);
+
+void thread_delete(void *arg);
